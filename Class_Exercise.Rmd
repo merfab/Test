@@ -1,0 +1,319 @@
+---
+title: "Class"
+author: "MKT"
+date: "January 21, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+## Leave one out 
+data(Auto)
+
+mse=rep(NA, nrow(Auto))
+
+for (i in 1:nrow(Auto)) {
+  f=lm(mpg~horsepower, data=Auto[-i,])
+  mse[i]= (Auto[i,1]-predict(f, Auto[i,-1]))^2
+  Mean = mean(mse)
+}
+```
+
+
+```{r}
+data(Auto)
+mseD=matrix(NA, nrow=nrow(Auto), ncol = 10)
+
+for (i in 1:nrow(Auto)) {
+  for (j in 1:10) {
+  f=lm(mpg~poly(horsepower, degree = j), data=Auto[-i,])
+  mseD[i,j]= (Auto[i,1]-predict(f, Auto[i,-1]))^2
+  Mean1 = colMeans(mseD)
+  }
+}
+plot(Mean1, type = "l")
+```
+
+
+10-fold CV
+```{r}
+data(Auto)
+k=10
+n=nrow(Auto)
+mseD=matrix(NA, nrow=k, ncol = 10)
+idx_shaffled = sample(n,n) 
+grp=(1:n) %% (n/k)
+grp[n]=k-1
+idx_list=split(idx_shaffled, factor(grp))
+
+for (i in 1:k) {
+  for (j in 1:10) {
+    idx = idx_list[[i]] #index for validation
+  f=lm(mpg~poly(horsepower, degree = j), data=Auto[-idx,])
+  mseD[i,j]= mean(Auto[idx,1]-predict(f, Auto[idx,-1])^2)
+  Mean2 = colMeans(mseD)
+  }
+}
+
+plot(Mean2, type = 'l')
+```
+
+### Class- FEB 07
+```{r}
+dat = data.frame(x=rnorm(4),y=rpois(4,9))
+b = dat[sample(4,4,replace=TRUE),]
+c = dat[sample(4,4,replace=TRUE),]
+
+b1=cor(dat$x,dat$y) # correlation 
+b2=cor(b$x,b$y)
+c3=cor(c$x,c$y)
+
+
+b1 
+b2
+c3
+
+```
+Use bootstrap to find the 95% confidencne interval for the training MSE, by predicting mpg from polynomial functions of horsepower for the entire Auto  dataset, plot the confidence 
+
+```{r}
+B=1000
+n=length(Auto)
+MSE= rep(NA,B)
+
+for (i in 1:B){
+  bootstrap_auto= Auto[sample(n,n, replace = TRUE),]
+  f=lm(mpg~horsepower, data=bootstrap_auto)
+#MSE= mean(Auto$mpg-predict(f,Auto[,-1]))^2)
+MSE=mean(f$residuals^2)
+}
+hist(MSE)
+quantile(MSE, c(0.025, 0.975))
+
+
+MSE_M = matrix(NA, nrow = B, ncol = 10)
+for (i in 1:B){
+  for (j in 1:10){
+  bootstrap_auto1= Auto[sample(n,n, replace = TRUE),]
+  func=lm(mpg~poly(horsepower, degree=j), data=bootstrap_auto1)
+  MSE_M[i,j] = mean(func$residuals^2)
+  }
+}
+apply(MSE_M, 2, quantile, c(0.025,0.975))
+```
+
+
+
+
+
+```{r}
+shrink = (1:5)/20
+trees = c(100,500,1000)
+depth = 1:3
+library(ISLR)
+library(gbm)
+set.seed(1010)
+train = sample(1:nrow(Default),nrow(Default)/2)
+truth = as.integer(Default$default[-train])-1
+pred.err = expand.grid(shrink=shrink,tree=trees,depth=depth)
+pred.err$error = NA
+
+f = gbm((as.integer(default)-1)~.,data=Default,shrinkage=0.05)
+```
+
+
+```{r}
+library(class)
+library(FNN)
+train = iris[c(1:25,51:75,101:125),-5]
+test = iris[c(26:50,76:100,126:150),-5]
+cl = factor(c(rep("s",25), rep("c",25), rep("v",25)))
+res=rep(NA, 30)
+
+for(k in 1:30){
+f = knn(train, test, cl, k = k)
+res[k] = mean(f!=cl)
+}
+res
+plot(res, type = 'o')
+
+library(FNN)
+ff = knn.reg(train=train[,-4], test=test[,-4], y=train[,4], k=3)
+summary(ff$pred)
+sum((ff$pred-test[,4])^2)
+```
+
+```{r}
+library(ISLR)
+f = lm(wage~poly(age,2,raw=TRUE),data=Wage)
+summary(f)
+
+
+age.grid = seq(from=min(Wage$age), to=max(Wage$age))
+head(age.grid)
+
+pred = predict(f,newdata=list(age=age.grid),se.fit=TRUE)
+head(pred$fit)
+
+plot(wage~age,data=Wage,pch=20,col="grey")
+lines(age.grid,pred$fit,lwd=2)
+lines(age.grid,pred$fit-2*pred$se,lwd=2,lty=2)
+lines(age.grid,pred$fit+2*pred$se,lwd=2,lty=2)
+
+
+set.seed(411)
+x = runif(100,0,100)
+y = 2-x+2*pmax(x-25,0)-3*pmax(x-50,0)+4*pmax(x-75,0)+
+25*pmax(runif(100)-.5,0)+rnorm(100,0,5)
+
+data= data.frame(x,y)
+ff = lm(y~poly(x,3,raw=TRUE),data=data)
+summary(ff)
+predi = predict(ff,list(x=50), se.fit=TRUE)
+head(predi$fit)
+
+ggplot(data, aes(x, y)) +
+    stat_smooth(method = lm, list(x=50), se = TRUE,  aes()) + geom_point()+
+    theme_light() + theme(axis.text.x = element_text(angle = 90, hjust = 1),
+                          legend.text=element_text(size=6)) 
+
+
+#Step Functions 
+l1=lm(y~cut(x,c(0,25,50,75,100)))
+l2=lm(y~cut(x,c(0,20,40,60,80,100)))
+
+
+predict(l1,newdata=list(x=30))
+predict(l2,newdata=list(x=30))
+predict(l1,newdata=list(x=70))
+predict(l2,newdata=list(x=70))
+
+```
+
+
+
+
+```{r}
+# Part (b):
+#
+tree.OJ = tree( Purchase ~ ., data=OJ[train,] )
+summary(tree.OJ)
+
+print( tree.OJ )
+
+
+plot(tree.OJ)
+text(tree.OJ,pretty=0)
+
+
+y_hat = predict( tree.OJ, newdata=OJ[test,], type="class" ) # gives classification labels
+CT = table( y_hat, OJ[test,]$Purchase )
+print( CT )
+print( 'original tree: classificaion error rate on the test dataset:')
+print( ( CT[1,2] + CT[2,1] ) / sum(CT) )
+
+# Part (c):
+# Use cross-validation to determine the optimal of tree complexity:
+ 
+cv.OJ = cv.tree( tree.OJ, FUN=prune.misclass )
+plot( cv.OJ$size, cv.OJ$dev, type="b")
+
+
+# Based on the above pick the size of the tree you want to prune to:
+#
+prune.OJ = prune.misclass( tree.OJ, best=4 )
+
+
+plot(prune.OJ)
+text(prune.OJ,pretty=0)
+
+
+# Compute training error rates:
+# 
+y_hat = predict( prune.OJ, newdata=OJ[train,], type="class" )
+CT = table( y_hat, OJ[train,]$Purchase )
+print( 'pruned tree: classificaion error rate on the training dataset:')
+print( ( CT[1,2] + CT[2,1] ) / sum(CT) )
+
+# Compute testing error rates:
+#
+y_hat = predict( prune.OJ, newdata=OJ[test,], type="class" )
+CT = table( y_hat, OJ[test,]$Purchase )
+print( 'pruned tree: classificaion error rate on the test dataset:')
+print( ( CT[1,2] + CT[2,1] ) / sum(CT) )
+
+```
+```{r message=FALSE, warning=FALSE}
+library(ISLR)
+set.seed(100)
+std_er_fun <- function(data, index) {
+  mean <- mean(data[index])
+return(mean)
+}
+boot(medv, std_er_fun, 10000)
+
+```
+
+```{r}
+library(MASS)
+f = qda(Species~.,data=iris)
+res = predict(f,newdata=iris[,-5])$class
+table(res,iris[,5])
+
+library(ggplot2)
+newdata = cbind(iris,Prediction=res,Mistake=(res!=iris[,5]))
+qplot(Petal.Length,Sepal.Length,data=newdata,geom='point',
+color=Prediction,shape=Species,size=Mistake)
+
+
+# Naive Bayes, LDA, and QDA--- use 5- fold CV
+```
+
+
+
+
+
+```{r setup, include=FALSE}
+
+#1
+dataW <- Wage 
+dim <- dim(Wage)
+summary(Wage)
+
+#2
+str(Wage) 
+class(Wage)
+sapply(Wage, class)
+
+#3
+Quan <- quantile(Wage$wage,0.9)
+
+#4
+Status <- Wage[Wage$wage > Quan,]
+summary(Status$maritl)
+table(summary(Status$maritl))
+
+#5
+names(Wage)
+levels(Wage$education)
+by(Wage, Wage$education, function(a){median(a$wage)})
+
+
+
+a= runif(n*p,0,1)
+b= runif(n*p,0,1)
+
+for a pair of points calculate the distance 
+
+mata =matrix(a,ncol=p,nrow=n)
+matb =matrix()...
+
+
+matdiff=matq-matb
+distance= sqrt(rowsum(mattdiff)
+
+
+```
